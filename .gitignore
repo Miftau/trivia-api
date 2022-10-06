@@ -14,3 +14,4 @@ venv
 ehthumbs.db
 Thumbs.db
 frontend\node_modules
+backend\__pycache__
