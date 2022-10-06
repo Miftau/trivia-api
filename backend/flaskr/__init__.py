@@ -5,7 +5,7 @@ from flask_cors import CORS, cross_origin
 import random
 import postgres
 
-from models import setup_db, Question, Category
+from models import *
 
 QUESTIONS_PER_PAGE = 10
 
@@ -20,7 +20,6 @@ def paginate_questions(request, selection):
 def create_app(test_config=None):
     app = Flask(__name__)
     setup_db(app)
-    CORS(app)
     """
     @TODO: Set up CORS. Allow '*' for origins. Delete the sample route after completing the TODOs
     """
@@ -39,7 +38,7 @@ def create_app(test_config=None):
         return response
 
     @app.route('/categories')
-    def retrieve_categories():
+    def categories():
         categories = Category.query.order_by(Category.type).all()
 
         if len(categories) == 0:
@@ -61,11 +60,11 @@ def create_app(test_config=None):
   Clicking on the page numbers should update the questions.
   '''
     @app.route('/questions')
-    def retrieve_questions():
-        selection = Question.query.order_by(Question.id).all()
+    def questions():
+        selection = Question.query.all()
         current_questions = paginate_questions(request, selection)
 
-        categories = Category.query.order_by(Category.type).all()
+        categories = Category.query.all()
 
         if len(current_questions) == 0:
             abort(404)
@@ -92,7 +91,7 @@ def create_app(test_config=None):
                 'success': True,
                 'deleted': question_id
             })
-        except:
+        except Exception:
             abort(422)
 
     '''
@@ -104,20 +103,15 @@ def create_app(test_config=None):
   of the questions list in the "List" tab.
   '''
     @app.route("/questions", methods=['POST'])
-    def add_question():
-        body = request.get_json()
-
-        if 'question' not in body or 'answer' not in body or 'difficulty' not in body or 'category' not in body:  #type: ignore
-            abort(422)
-
-        new_question = body.get('question')   #type: ignore
-        new_answer = body.get('answer')     #type: ignore
-        new_difficulty = body.get('difficulty')     #type: ignore
-        new_category = body.get('category')           #type: ignore
-
+    def create_question():
+        new_question = request.form['question'] 
+        new_answer = request.form['answer']
+        new_category = request.form['category']  
+        new_difficulty = request.form['difficulty'] 
+         
+        question = Question(question=new_question, answer=new_answer, difficulty=new_difficulty, category=new_category)  
+        
         try:
-            question = Question(question=new_question, answer=new_answer,
-                                difficulty=new_difficulty, category=new_category)
             question.insert()
 
             return jsonify({
@@ -125,7 +119,7 @@ def create_app(test_config=None):
                 'created': question.id,
             })
 
-        except:
+        except Exception:
             abort(422)
 
     '''
@@ -142,8 +136,7 @@ def create_app(test_config=None):
         search_term = body.get('searchTerm', None)   #type: ignore
 
         if search_term:
-            search_results = Question.query.filter(
-                Question.question.ilike(f'%{search_term}%')).all()
+            search_results = Question.query.filter(Question.question.ilike(f'%{search_term}%')).all()
 
             return jsonify({
                 'success': True,
@@ -160,11 +153,10 @@ def create_app(test_config=None):
   category to be shown.
   '''
     @app.route('/categories/<int:category_id>/questions', methods=['GET'])
-    def retrieve_questions_by_category(category_id):
+    def get_questions_by_category(category_id):
 
         try:
-            questions = Question.query.filter(
-                Question.category == str(category_id)).all()
+            questions = Question.query.filter_by(Question.category == str(category_id)).all()
 
             return jsonify({
                 'success': True,
@@ -172,7 +164,7 @@ def create_app(test_config=None):
                 'total_questions': len(questions),
                 'current_category': category_id
             })
-        except:
+        except Exception:
             abort(404)
 
     '''
@@ -197,14 +189,11 @@ def create_app(test_config=None):
             previous_questions = body.get('previous_questions') #type: ignore
 
             if category['type'] == 'click':
-                available_questions = Question.query.filter(
-                    Question.id.notin_((previous_questions))).all()
+                current_questions = Question.query.filter_by(Question.id.notin_((previous_questions))).all()
             else:
-                available_questions = Question.query.filter_by(
-                    category=category['id']).filter(Question.id.notin_((previous_questions))).all()
+                current_questions = Question.query.filter_by(category=category['id']).filter(Question.id.notin_((previous_questions))).all()
 
-            new_question = available_questions[random.randrange(
-                0, len(available_questions))].format() if len(available_questions) > 0 else None
+            new_question = current_questions[random.randrange(0, len(current_questions))].format() if len(current_questions) > 0 else None
 
             return jsonify({
                 'success': True,
